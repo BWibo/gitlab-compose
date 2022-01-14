@@ -1,0 +1,89 @@
+version: '3.9'
+
+# Networks ####################################################################
+# Net -------------------------------------------------------------------------
+networks:
+  net:
+    driver: overlay
+    attachable: true
+
+# Volumes ---------------------------------------------------------------------
+volumes:
+  caddy_data:
+    # external: true
+  caddy_config:
+    # external: true
+  gitlab_config:
+  gitlab_data:
+  gitlab_logs:
+
+# Services ####################################################################
+services:
+  # Caddy ---------------------------------------------------------------------
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:${CADDY_VERSION:?CADDY_VERSION not set}
+    # container_name: caddy
+    ports:
+      - 80:80
+      - 443:443
+      # - 2019:2019
+    networks:
+      - net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -o /dev/null --silent --head --write-out '%{http_code}\n' http://localhost:2019/metrics | grep 200"]
+      # interval: 1m30s
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    labels:
+      caddy.email: "${ADMIN_EMAIL:-a@b.de}"
+      # Avoids exceeding rate limit for Let's Encrypt certificates
+      # Disable to obtain production SSL certificate
+      # https://caddyserver.com/docs/automatic-https#testing
+      caddy.acme_ca: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+  # Gitlab --------------------------------------------------------------------
+  web:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'localhost'
+    networks:
+    - net
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url "https://${DOMAIN:?DOMAIN not set}"
+        # Disable SSL ----------------------------------------------
+        nginx['listen_https'] = false
+        nginx['listen_port'] = 80
+        nginx['redirect_http_to_https'] = false
+        letsencrypt['enable'] = false
+        # Disable SSL Registry nginx ------------------------------
+        registry_external_url "https://reg.${DOMAIN:?DOMAIN not set}"
+        registry_nginx['listen_https'] = false
+        registry_nginx['listen_port'] = 5050
+        registry_nginx['redirect_http_to_https'] = false
+        mattermost['gitlab_enable'] = false
+    ports:
+      # - '80:80'
+      # - '443:443'
+      - 22:22
+      - 5050:5050
+    volumes:
+      # - '$GITLAB_HOME/config:/etc/gitlab'
+      # - '$GITLAB_HOME/logs:/var/log/gitlab'
+      # - '$GITLAB_HOME/data:/var/opt/gitlab'
+      - gitlab_config:/etc/gitlab
+      - gitlab_data:/var/opt/gitlab
+      - gitlab_logs:/var/log/gitlab
+    shm_size: '256m'
+    labels:
+      caddy_1: "www.localhost, localhost"
+      caddy_1.reverse_proxy: "{{upstreams http}}"
+      caddy_2: "reg.localhost, www.reg.localhost"
+      caddy_2.reverse_proxy: "{{upstreams http 5050}}"
