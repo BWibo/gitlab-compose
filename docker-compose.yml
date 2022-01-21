@@ -11,7 +11,7 @@ networks:
 volumes:
   caddy_data:
     # external: true
-  caddy_config:
+  # caddy_config:
     # external: true
   gitlab_config:
   gitlab_data:
@@ -21,59 +21,62 @@ volumes:
 services:
   # Caddy ---------------------------------------------------------------------
   caddy:
-    image: lucaslorentz/caddy-docker-proxy:${CADDY_VERSION:?CADDY_VERSION not set}
-    # container_name: caddy
+    image: caddy:${CADDY_VERSION:?CADDY_VERSION not set}
+    restart: unless-stopped
     ports:
       - 80:80
       - 443:443
-      # - 2019:2019
+    environment:
+      DOMAIN: "${DOMAIN:?DOMAIN not set}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:?ADMIN_EMAIL not set}"
+      DOMAIN_REGISTRY: ${DOMAIN_REGISTRY:?DOMAIN_REGISTRY not set}
     networks:
       - net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -o /dev/null --silent --head --write-out '%{http_code}\n' http://localhost:2019/metrics | grep 200"]
-      # interval: 1m30s
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - caddy_data:/data
-      - caddy_config:/config
-    restart: unless-stopped
-    labels:
-      caddy.email: "${ADMIN_EMAIL:-a@b.de}"
-      # Avoids exceeding rate limit for Let's Encrypt certificates
-      # Disable to obtain production SSL certificate
-      # https://caddyserver.com/docs/automatic-https#testing
-      caddy.acme_ca: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
 
   # Gitlab --------------------------------------------------------------------
   web:
-    image: 'gitlab/gitlab-ce:latest'
-    restart: always
-    hostname: 'localhost'
+    image: gitlab/gitlab-ce:${GITLAB_VERSION:?GITLAB_VERSION not set}
+    restart: unless-stopped
     networks:
     - net
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         external_url "https://${DOMAIN:?DOMAIN not set}"
-        # Disable SSL ----------------------------------------------
+        # Disable SSL -----------------------------------------------
         nginx['listen_https'] = false
         nginx['listen_port'] = 80
         nginx['redirect_http_to_https'] = false
         letsencrypt['enable'] = false
-        # Disable SSL Registry nginx ------------------------------
-        registry_external_url "https://reg.${DOMAIN:?DOMAIN not set}"
+        # Disable SSL Registry nginx --------------------------------
+        registry_external_url "https://${DOMAIN_REGISTRY:?DOMAIN_REGISTRY not set}"
         registry_nginx['listen_https'] = false
         registry_nginx['listen_port'] = 5050
         registry_nginx['redirect_http_to_https'] = false
         mattermost['gitlab_enable'] = false
+        # SMTP ------------------------------------------------------
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "${SMTP_HOST:?SMTP_HOST not set}"
+        gitlab_rails['smtp_domain'] = "${SMTP_HOST:?SMTP_HOST not set}"
+        gitlab_rails['smtp_port'] = 465
+        gitlab_rails['smtp_user_name'] = "${SMTP_USERNAME:?SMTP_USERNAME not set}"
+        gitlab_rails['smtp_password'] = "${SMTP_PASSWORD:?SMTP_PASSWORD not set}"
+        gitlab_rails['smtp_enable_starttls_auto'] = false
+        gitlab_rails['smtp_tls'] = true
+        gitlab_rails['smtp_openssl_verify_mode'] = 'peer'
+        gitlab_rails['smtp_authentication'] = "login"
+        # eMail -----------------------------------------------------
+        gitlab_rails['gitlab_email_enabled'] = true
+        gitlab_rails['gitlab_email_from'] = "${SMTP_USERNAME:?SMTP_USERNAME not set}"
+        gitlab_rails['gitlab_email_display_name'] = "${EMAIL_DISPLAY_NAME:?EMAIL_DISPLAY_NAME not set}"
+        gitlab_rails['gitlab_email_reply_to'] = "${SMTP_USERNAME:?SMTP_USERNAME not set}"
     ports:
-      # - '80:80'
-      # - '443:443'
       - 22:22
-      - 5050:5050
+      # - 80:80
+      # - 443:443
+      # - 5050:5050
     volumes:
       # - '$GITLAB_HOME/config:/etc/gitlab'
       # - '$GITLAB_HOME/logs:/var/log/gitlab'
@@ -82,8 +85,3 @@ services:
       - gitlab_data:/var/opt/gitlab
       - gitlab_logs:/var/log/gitlab
     shm_size: '256m'
-    labels:
-      caddy_1: "www.localhost, localhost"
-      caddy_1.reverse_proxy: "{{upstreams http}}"
-      caddy_2: "reg.localhost, www.reg.localhost"
-      caddy_2.reverse_proxy: "{{upstreams http 5050}}"

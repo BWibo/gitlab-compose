@@ -1,0 +1,19 @@
+{
+  # SSL
+  email {$ADMIN_EMAIL}
+  # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+  # Enable to see header set by upstream
+  # debug
+}
+
+{$DOMAIN} {
+  reverse_proxy http://web
+}
+
+{$DOMAIN_REGISTRY} {
+  reverse_proxy http://web:5050 {
+    header_up Docker-Distribution-Api-Version "registry/2.0"
+    header_up X-Forwarded-Proto "https"
+  }
+}
