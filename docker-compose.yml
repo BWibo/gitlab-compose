@@ -72,6 +72,10 @@ services:
         gitlab_rails['gitlab_email_from'] = "${SMTP_USERNAME:?SMTP_USERNAME not set}"
         gitlab_rails['gitlab_email_display_name'] = "${EMAIL_DISPLAY_NAME:?EMAIL_DISPLAY_NAME not set}"
         gitlab_rails['gitlab_email_reply_to'] = "${SMTP_USERNAME:?SMTP_USERNAME not set}"
+        # git LFS ---------------------------------------------------
+        gitlab_rails['lfs_object_store_enabled'] = true
+        # Optionally change LFS storage path
+        # gitlab_rails['lfs_object_store_remote_directory'] = "/mnt/storage/lfs-objects"
     ports:
       - 22:22
       # - 80:80
