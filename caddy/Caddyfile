@@ -7,11 +7,13 @@
   # debug
 }
 
-{$DOMAIN} {
+{$TLS_DOMAINS} {
+  {$CADDY_TLS}
   reverse_proxy http://web
 }
 
 {$DOMAIN_REGISTRY} {
+  {$CADDY_TLS}
   reverse_proxy http://web:5050 {
     header_up Docker-Distribution-Api-Version "registry/2.0"
     header_up X-Forwarded-Proto "https"

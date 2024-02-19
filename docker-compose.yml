@@ -27,9 +27,10 @@ services:
       - 80:80
       - 443:443
     environment:
-      DOMAIN: "${DOMAIN:?DOMAIN not set}"
+      TLS_DOMAINS: "${TLS_DOMAINS:?TLS_DOMAINS not set}"
       ADMIN_EMAIL: "${ADMIN_EMAIL:?ADMIN_EMAIL not set}"
-      DOMAIN_REGISTRY: ${DOMAIN_REGISTRY:?DOMAIN_REGISTRY not set}
+      CADDY_TLS: "${CADDY_TLS}"
+      DOMAIN_REGISTRY: "${DOMAIN_REGISTRY:?DOMAIN_REGISTRY not set}"
     networks:
       - net
     volumes:
