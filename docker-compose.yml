@@ -39,7 +39,7 @@ services:
 
   # Gitlab --------------------------------------------------------------------
   web:
-    image: gitlab/gitlab-ce:${GITLAB_VERSION:?GITLAB_VERSION not set}
+    image: zengxs/gitlab:${GITLAB_VERSION:?GITLAB_VERSION not set}
     restart: unless-stopped
     networks:
     - net
