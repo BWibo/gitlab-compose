@@ -35,7 +35,10 @@ services:
       - net
     volumes:
       - caddy_data:/data
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      # Mount the directory, not the file: git pull swaps the Caddyfile for a new
+      # inode, which a single-file bind mount never sees (reload would load the
+      # stale file).
+      - ./caddy:/etc/caddy:ro
 
   # Gitlab --------------------------------------------------------------------
   web:
